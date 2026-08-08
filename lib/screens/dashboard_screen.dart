@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../core/constants/app_theme.dart';
-import '../core/services/backup_service.dart';
 import '../core/services/database_helper.dart';
 import '../core/services/notification_service.dart';
 import '../core/utils/formatters.dart';
@@ -19,7 +19,7 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   List<LoanModel> _allLoans = [];
   bool _isLoading = true;
-  String _selectedFilter = 'Todos'; // 'Todos', 'Pendientes', 'Parciales', 'Vencidos', 'Pagados'
+  String _selectedFilter = 'Todos';
   String _searchQuery = '';
 
   @override
@@ -69,6 +69,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }).toList();
   }
 
+  /// Agrupa los préstamos por Mes y Año (ej: "Setiembre 2026", "Agosto 2026")
+  Map<String, List<LoanModel>> _groupByMonthAndYear(List<LoanModel> loans) {
+    final Map<String, List<LoanModel>> grouped = {};
+    for (var loan in loans) {
+      final monthKey = DateFormat('MMMM yyyy', 'es').format(loan.dueDate);
+      final capitalizedKey = monthKey[0].toUpperCase() + monthKey.substring(1);
+      grouped.putIfAbsent(capitalizedKey, () => []).add(loan);
+    }
+    return grouped;
+  }
+
   Future<void> _addOrEditLoan([LoanModel? existingLoan]) async {
     final result = await showModalBottomSheet<LoanModel>(
       context: context,
@@ -93,12 +104,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _togglePaid(LoanModel loan) async {
+    if (!loan.isPaid) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppTheme.cardBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_outline_rounded, color: AppTheme.success),
+              SizedBox(width: 8),
+              Text('¿Confirmar Pago?', style: TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            '¿Estás seguro de marcar como PAGADO por completo el préstamo de ${loan.debtorName} por un saldo pendiente de ${AppFormatters.formatCurrency(loan.remainingBalance, loan.currency)}?',
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(context, true),
+              icon: const Icon(Icons.check, color: Colors.white, size: 18),
+              label: const Text('Sí, Confirmar Pago', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.success,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+    }
+
     final newStatus = loan.isPaid ? 'Pendiente' : 'Pagado';
     await DatabaseHelper.instance.updateStatus(loan.id!, newStatus);
 
     if (newStatus == 'Pagado') {
       await NotificationService.instance.cancelReminder(loan.id!);
-      _showSnackBar('Marcado como PAGADO 🎉');
+      _showSnackBar('🎉 Pago completado y registrado');
     } else {
       await NotificationService.instance.scheduleLoanReminder(loan.copyWith(status: newStatus));
       _showSnackBar('Estado cambiado a PENDIENTE');
@@ -208,31 +257,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _handleBackupMenu(String choice) async {
-    if (_allLoans.isEmpty && (choice == 'export_json' || choice == 'export_csv')) {
-      _showSnackBar('No hay registros para exportar', isError: true);
-      return;
-    }
-
-    if (choice == 'export_json') {
-      final success = await BackupService.instance.exportJson(_allLoans);
-      if (success) _showSnackBar('Respaldo JSON generado');
-    } else if (choice == 'export_csv') {
-      final success = await BackupService.instance.exportCsv(_allLoans);
-      if (success) _showSnackBar('Reporte CSV generado');
-    } else if (choice == 'import_json') {
-      try {
-        final count = await BackupService.instance.importJson();
-        if (count != null) {
-          _showSnackBar('Se restauraron $count préstamos con éxito 🔄');
-          _loadLoans();
-        }
-      } catch (e) {
-        _showSnackBar('Error al restaurar respaldo: Archivo no válido', isError: true);
-      }
-    }
-  }
-
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -246,6 +270,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredLoans;
+    final groupedLoans = _groupByMonthAndYear(filtered);
 
     return Scaffold(
       appBar: AppBar(
@@ -263,157 +288,104 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const Icon(Icons.bar_chart_rounded, color: AppTheme.warning),
             tooltip: 'Ver Balances y Estadísticas',
           ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.shield_outlined, color: AppTheme.primaryAccent),
-            tooltip: 'Respaldos y Seguridad',
-            onSelected: _handleBackupMenu,
-            color: AppTheme.cardBg,
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'export_json',
-                child: Row(
-                  children: [
-                    Icon(Icons.download_rounded, color: AppTheme.primaryAccent, size: 20),
-                    SizedBox(width: 10),
-                    Text('Exportar Respaldo (JSON)', style: TextStyle(color: AppTheme.textPrimary)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'export_csv',
-                child: Row(
-                  children: [
-                    Icon(Icons.table_chart_outlined, color: AppTheme.success, size: 20),
-                    SizedBox(width: 10),
-                    Text('Exportar a Excel (CSV)', style: TextStyle(color: AppTheme.textPrimary)),
-                  ],
-                ),
-              ),
-              PopupMenuDivider(height: 1),
-              PopupMenuItem(
-                value: 'import_json',
-                child: Row(
-                  children: [
-                    Icon(Icons.upload_file_rounded, color: AppTheme.warning, size: 20),
-                    SizedBox(width: 10),
-                    Text('Restaurar Copia (JSON)', style: TextStyle(color: AppTheme.textPrimary)),
-                  ],
-                ),
-              ),
-            ],
-          ),
           const SizedBox(width: 8),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadLoans,
         color: AppTheme.primaryAccent,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // BÚSQUEDA DIRECTA
-              TextField(
-                onChanged: (val) => setState(() => _searchQuery = val),
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: const InputDecoration(
-                  hintText: 'Buscar por deudor o teléfono...',
-                  prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // PESTAÑAS DE FILTRO CON CONTADORES
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildFilterChip('Todos', _allLoans.length, Colors.white),
-                    _buildFilterChip('Pendientes', _countPending, AppTheme.warning),
-                    _buildFilterChip('Parciales', _countPartial, const Color(0xFF06B6D4)),
-                    _buildFilterChip('Vencidos', _countOverdue, AppTheme.danger),
-                    _buildFilterChip('Pagados', _countPaid, AppTheme.success),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ENCABEZADO DE LISTA PRINCIPAL
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          children: [
+            // PANEL FIJO DE BÚSQUEDA Y FILTROS
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Column(
                 children: [
-                  Text(
-                    _selectedFilter == 'Todos' ? 'Lista de Préstamos' : 'Préstamos: $_selectedFilter',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  TextField(
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                    style: const TextStyle(color: AppTheme.textPrimary),
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar por deudor o teléfono...',
+                      prefixIcon: Icon(Icons.search, color: AppTheme.textSecondary),
                     ),
                   ),
-                  Text(
-                    '${filtered.length} registro(s)',
-                    style: const TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip('Todos', _allLoans.length, Colors.white),
+                        _buildFilterChip('Pendientes', _countPending, AppTheme.warning),
+                        _buildFilterChip('Parciales', _countPartial, const Color(0xFF06B6D4)),
+                        _buildFilterChip('Vencidos', _countOverdue, AppTheme.danger),
+                        _buildFilterChip('Pagados', _countPaid, AppTheme.success),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+            ),
 
-              // LISTA DE PRÉSTAMOS
-              if (_isLoading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppTheme.primaryAccent),
-                  ),
-                )
-              else if (filtered.isEmpty)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.folder_off_outlined,
-                          size: 64,
-                          color: AppTheme.textSecondary.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _searchQuery.isNotEmpty
-                              ? 'No se encontraron coincidencias para "$_searchQuery"'
-                              : 'No hay préstamos en la sección $_selectedFilter',
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 15,
+            // CONTENIDO PRINCIPAL CON STICKY HEADERS POR MES Y AÑO
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryAccent))
+                  : filtered.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.folder_off_outlined, size: 64, color: AppTheme.textSecondary.withValues(alpha: 0.4)),
+                              const SizedBox(height: 12),
+                              Text(
+                                _searchQuery.isNotEmpty
+                                    ? 'No se encontraron coincidencias para "$_searchQuery"'
+                                    : 'No hay préstamos en la sección $_selectedFilter',
+                                style: const TextStyle(color: AppTheme.textSecondary, fontSize: 15),
+                              ),
+                            ],
                           ),
+                        )
+                      : CustomScrollView(
+                          slivers: groupedLoans.entries.map((entry) {
+                            final monthYearHeader = entry.key;
+                            final monthLoans = entry.value;
+
+                            return SliverMainAxisGroup(
+                              slivers: [
+                                // ENCABEZADO PEGAJOSO EN GRIS ESTILO YAPE (SOLO MES Y AÑO)
+                                SliverPersistentHeader(
+                                  pinned: true,
+                                  delegate: _StickyMonthHeaderDelegate(
+                                    monthYear: monthYearHeader.toUpperCase(),
+                                  ),
+                                ),
+
+                                // LISTA DE PRÉSTAMOS DEL MES
+                                SliverPadding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  sliver: SliverList(
+                                    delegate: SliverChildBuilderDelegate(
+                                      (context, index) {
+                                        final loan = monthLoans[index];
+                                        return LoanTile(
+                                          loan: loan,
+                                          onTogglePaid: () => _togglePaid(loan),
+                                          onDelete: () => _confirmDelete(loan),
+                                          onEdit: () => _addOrEditLoan(loan),
+                                          onPaymentAdded: _loadLoans,
+                                        );
+                                      },
+                                      childCount: monthLoans.length,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
                         ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final loan = filtered[index];
-                    return LoanTile(
-                      loan: loan,
-                      onTogglePaid: () => _togglePaid(loan),
-                      onDelete: () => _confirmDelete(loan),
-                      onEdit: () => _addOrEditLoan(loan),
-                      onPaymentAdded: _loadLoans,
-                    );
-                  },
-                ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -465,5 +437,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
       ),
     );
+  }
+}
+
+/// Delegate para crear el Sticky Header Gris de Yape con SOLO MES Y AÑO
+class _StickyMonthHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final String monthYear;
+
+  _StickyMonthHeaderDelegate({required this.monthYear});
+
+  @override
+  double get minExtent => 36.0;
+
+  @override
+  double get maxExtent => 36.0;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: const Color(0xFF1E293B), // Gris oscuro Yape
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        monthYear,
+        style: const TextStyle(
+          color: AppTheme.textSecondary,
+          fontSize: 12.5,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.1,
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickyMonthHeaderDelegate oldDelegate) {
+    return oldDelegate.monthYear != monthYear;
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_theme.dart';
 import '../core/services/security_service.dart';
-import 'dashboard_screen.dart';
+import 'main_navigation_screen.dart';
 
 class PinLockScreen extends StatefulWidget {
   const PinLockScreen({super.key});
@@ -44,7 +44,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
     if (isValid) {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
       );
     } else {
       setState(() {
@@ -162,7 +162,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          const SizedBox(width: 68), // Espaciador
+                          const SizedBox(width: 68),
                           _buildKey('0'),
                           InkWell(
                             onTap: _onDelete,

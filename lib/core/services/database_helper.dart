@@ -4,6 +4,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import '../../models/loan_model.dart';
 import '../../models/payment_model.dart';
+import '../../models/transaction_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -37,7 +38,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -58,6 +59,7 @@ class DatabaseHelper {
         currency $textType,
         borrowDate $textType,
         dueDate $textType,
+        paidDate $textNullable,
         status $textType,
         notes $textNullable,
         phone $textNullable,
@@ -106,6 +108,11 @@ class DatabaseHelper {
         ''');
       } catch (_) {}
     }
+    if (oldVersion < 4) {
+      try {
+        await db.execute('ALTER TABLE loans ADD COLUMN paidDate TEXT');
+      } catch (_) {}
+    }
   }
 
   // --- MÉTODOS DE PRÉSTAMOS ---
@@ -147,6 +154,46 @@ class DatabaseHelper {
     return loans;
   }
 
+  /// Retorna la lista consolidada de todas las transacciones (Pagos recibidos + Préstamos creados)
+  Future<List<TransactionModel>> getAllTransactions() async {
+    final loans = await getAllLoans();
+    final List<TransactionModel> txs = [];
+
+    for (var loan in loans) {
+      // 1. Agregar la transacción de creación del préstamo (-)
+      txs.add(TransactionModel(
+        id: 'LOAN_${loan.id}',
+        debtorName: loan.debtorName,
+        amount: loan.totalWithInterest,
+        currency: loan.currency,
+        date: loan.borrowDate,
+        type: 'PRESTAMO',
+        note: 'Préstamo otorgado (${loan.paymentFrequency})',
+        loanId: loan.id!,
+        remainingBalance: loan.remainingBalance,
+      ));
+
+      // 2. Agregar cada abono o pago recibido (+)
+      for (var p in loan.payments) {
+        txs.add(TransactionModel(
+          id: 'PAY_${p.id}',
+          debtorName: loan.debtorName,
+          amount: p.amount,
+          currency: loan.currency,
+          date: p.date,
+          type: 'ABONO',
+          note: p.note ?? 'Abono parcial recibido',
+          loanId: loan.id!,
+          remainingBalance: loan.remainingBalance,
+        ));
+      }
+    }
+
+    // Ordenar de más reciente a más antiguo
+    txs.sort((a, b) => b.date.compareTo(a.date));
+    return txs;
+  }
+
   Future<int> updateLoan(LoanModel loan) async {
     if (kIsWeb) {
       final index = _webMemoryStore.indexWhere((l) => l.id == loan.id);
@@ -167,10 +214,15 @@ class DatabaseHelper {
   }
 
   Future<int> updateStatus(int id, String newStatus) async {
+    final paidDateStr = newStatus == 'Pagado' ? DateTime.now().toIso8601String() : null;
+
     if (kIsWeb) {
       final index = _webMemoryStore.indexWhere((l) => l.id == id);
       if (index != -1) {
-        _webMemoryStore[index] = _webMemoryStore[index].copyWith(status: newStatus);
+        _webMemoryStore[index] = _webMemoryStore[index].copyWith(
+          status: newStatus,
+          paidDate: newStatus == 'Pagado' ? DateTime.now() : null,
+        );
         return 1;
       }
       return 0;
@@ -179,7 +231,10 @@ class DatabaseHelper {
     final db = await database;
     return await db!.update(
       'loans',
-      {'status': newStatus},
+      {
+        'status': newStatus,
+        'paidDate': paidDateStr,
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -197,7 +252,7 @@ class DatabaseHelper {
     return await db.delete('loans', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- MÉTODOS DE ABONOS (PAGOS PARCIALES) ---
+  // --- MÉTODOS DE ABONOS ---
 
   Future<int> insertPayment(PaymentModel payment) async {
     if (kIsWeb) {

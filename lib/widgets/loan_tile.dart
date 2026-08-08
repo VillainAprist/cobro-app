@@ -43,6 +43,254 @@ class LoanTile extends StatelessWidget {
     }
   }
 
+  void _showLoanDetailsModal(BuildContext context) {
+    final status = loan.dynamicStatus;
+    final isPaid = status == 'Pagado';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            top: 24,
+            left: 20,
+            right: 20,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: isPaid
+                                ? AppTheme.success.withValues(alpha: 0.2)
+                                : AppTheme.primaryAccent.withValues(alpha: 0.2),
+                            child: Text(
+                              loan.debtorName.isNotEmpty ? loan.debtorName[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                color: isPaid ? AppTheme.success : AppTheme.primaryAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  loan.debtorName,
+                                  style: const TextStyle(
+                                    color: AppTheme.textPrimary,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (loan.phone != null && loan.phone!.isNotEmpty)
+                                  Text(
+                                    'Tel: ${loan.phone}',
+                                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    StatusBadge(status: status),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Fecha de Préstamo:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                          Text(AppFormatters.formatDate(loan.borrowDate), style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Fecha Límite de Cobro:', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                          Text(AppFormatters.formatDate(loan.dueDate), style: const TextStyle(color: AppTheme.warning, fontWeight: FontWeight.bold, fontSize: 12.5)),
+                        ],
+                      ),
+                      if (isPaid && loan.paidDate != null) ...[
+                        const Divider(color: Colors.white10, height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.check_circle, color: AppTheme.success, size: 14),
+                                SizedBox(width: 4),
+                                Text('Fecha en que se Pagó:', style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ],
+                            ),
+                            Text(
+                              AppFormatters.formatDate(loan.paidDate!),
+                              style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 12.5),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Desglose Financiero:', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildDetailRow('Monto Inicial Prestado', AppFormatters.formatCurrency(loan.amount, loan.currency)),
+                      if (loan.calculatedInterest > 0)
+                        _buildDetailRow('Interés / Ganancia', '+ ${AppFormatters.formatCurrency(loan.calculatedInterest, loan.currency)}', color: AppTheme.warning),
+                      const Divider(color: Colors.white10, height: 12),
+                      _buildDetailRow('Total a Cobrar', AppFormatters.formatCurrency(loan.totalWithInterest, loan.currency), isBold: true),
+                      _buildDetailRow('Total Abonado Hasta Ahora', AppFormatters.formatCurrency(loan.totalPaid, loan.currency), color: AppTheme.success),
+                      _buildDetailRow('Saldo Restante Pendiente', AppFormatters.formatCurrency(loan.remainingBalance, loan.currency), color: isPaid ? AppTheme.success : AppTheme.warning, isBold: true),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Historial de Fechas de Abono:', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    Text('${loan.payments.length} abono(s)', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11.5)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+
+                if (loan.payments.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text('No se han registrado abonos parciales aún.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12, fontStyle: FontStyle.italic)),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 160),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: loan.payments.length,
+                      itemBuilder: (ctx, i) {
+                        final p = loan.payments[i];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardBg,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.success.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.event_available, color: AppTheme.success, size: 13),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Abonado el ${AppFormatters.formatDate(p.date)}',
+                                        style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                  if (p.note != null && p.note!.isNotEmpty)
+                                    Text('Nota: ${p.note}', style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11, fontStyle: FontStyle.italic)),
+                                ],
+                              ),
+                              Text(
+                                '+ ${AppFormatters.formatCurrency(p.amount, loan.currency)}',
+                                style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cardBgLight),
+                    child: const Text('Cerrar Detalles', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? color, bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+          Text(
+            value,
+            style: TextStyle(
+              color: color ?? AppTheme.textPrimary,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              fontSize: isBold ? 13 : 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAddPaymentModal(BuildContext context) {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
@@ -77,7 +325,7 @@ class LoanTile extends StatelessWidget {
                           'Registrar Abono - ${loan.debtorName}',
                           style: const TextStyle(
                             color: AppTheme.textPrimary,
-                            fontSize: 18,
+                            fontSize: 17,
                             fontWeight: FontWeight.bold,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -89,14 +337,13 @@ class LoanTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
-                  // Resumen de Saldo
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: AppTheme.cardBg,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppTheme.primaryAccent.withValues(alpha: 0.3)),
                     ),
                     child: Row(
@@ -104,37 +351,36 @@ class LoanTile extends StatelessWidget {
                       children: [
                         Column(
                           children: [
-                            const Text('Total Deuda', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+                            const Text('Total Deuda', style: TextStyle(color: AppTheme.textSecondary, fontSize: 10.5)),
                             Text(
                               AppFormatters.formatCurrency(loan.totalWithInterest, loan.currency),
-                              style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 12.5),
                             ),
                           ],
                         ),
                         Column(
                           children: [
-                            const Text('Abonado', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+                            const Text('Abonado', style: TextStyle(color: AppTheme.textSecondary, fontSize: 10.5)),
                             Text(
                               AppFormatters.formatCurrency(loan.totalPaid, loan.currency),
-                              style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 12.5),
                             ),
                           ],
                         ),
                         Column(
                           children: [
-                            const Text('Saldo Restante', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+                            const Text('Saldo Restante', style: TextStyle(color: AppTheme.textSecondary, fontSize: 10.5)),
                             Text(
                               AppFormatters.formatCurrency(loan.remainingBalance, loan.currency),
-                              style: const TextStyle(color: AppTheme.warning, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: AppTheme.warning, fontWeight: FontWeight.bold, fontSize: 12.5),
                             ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
-                  // Monto a abonar
                   TextField(
                     controller: amountController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -145,9 +391,8 @@ class LoanTile extends StatelessWidget {
                       prefixIcon: const Icon(Icons.payments_outlined, color: AppTheme.success),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
-                  // Fecha del abono
                   InkWell(
                     onTap: () async {
                       final picked = await showDatePicker(
@@ -171,9 +416,8 @@ class LoanTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
-                  // Nota opcional
                   TextField(
                     controller: noteController,
                     style: const TextStyle(color: AppTheme.textPrimary),
@@ -183,12 +427,11 @@ class LoanTile extends StatelessWidget {
                       prefixIcon: Icon(Icons.note_alt_outlined, color: AppTheme.textSecondary),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // Botón Guardar Abono
                   SizedBox(
                     width: double.infinity,
-                    height: 48,
+                    height: 46,
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         final val = double.tryParse(amountController.text);
@@ -204,6 +447,23 @@ class LoanTile extends StatelessWidget {
                         await DatabaseHelper.instance.insertPayment(payment);
                         if (!context.mounted) return;
                         Navigator.pop(context);
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text('🎉 ¡Abono de ${AppFormatters.formatCurrency(val, loan.currency)} registrado!'),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: AppTheme.success,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+
                         onPaymentAdded();
                       },
                       icon: const Icon(Icons.check_rounded, color: Colors.white),
@@ -211,67 +471,12 @@ class LoanTile extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.success,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
                   ),
-
-                  // HISTORIAL DE ABONOS REALIZADOS
-                  if (loan.payments.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    const Text('Historial de Abonos:', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 8),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 150),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: loan.payments.length,
-                        itemBuilder: (ctx, i) {
-                          final p = loan.payments[i];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cardBg,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(AppFormatters.formatDate(p.date), style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
-                                    if (p.note != null) Text(p.note!, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12)),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Text(
-                                      '+ ${AppFormatters.formatCurrency(p.amount, loan.currency)}',
-                                      style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 13),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: AppTheme.danger, size: 16),
-                                      onPressed: () async {
-                                        if (p.id != null) {
-                                          await DatabaseHelper.instance.deletePayment(p.id!);
-                                          if (!context.mounted) return;
-                                          Navigator.pop(context);
-                                          onPaymentAdded();
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                  const SizedBox(height: 8),
                 ],
               ),
             );
@@ -286,160 +491,105 @@ class LoanTile extends StatelessWidget {
     final status = loan.dynamicStatus;
     final isPaid = status == 'Pagado';
     final isPartial = status == 'Parcial';
-
-    final progress = loan.totalWithInterest > 0
-        ? (loan.totalPaid / loan.totalWithInterest).clamp(0.0, 1.0)
-        : 0.0;
+    final dateStr = AppFormatters.formatDate(loan.dueDate);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: isPaid
-                ? AppTheme.success.withValues(alpha: 0.05)
-                : (loan.isOverdue
-                    ? AppTheme.danger.withValues(alpha: 0.1)
-                    : Colors.black12),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isPaid
-              ? AppTheme.success.withValues(alpha: 0.35)
+              ? AppTheme.success.withValues(alpha: 0.3)
               : (isPartial
-                  ? const Color(0xFF06B6D4).withValues(alpha: 0.45)
+                  ? const Color(0xFF06B6D4).withValues(alpha: 0.35)
                   : (loan.isOverdue
-                      ? AppTheme.danger.withValues(alpha: 0.6)
-                      : Colors.white.withValues(alpha: 0.08))),
-          width: 1.2,
+                      ? AppTheme.danger.withValues(alpha: 0.5)
+                      : Colors.white.withValues(alpha: 0.07))),
+          width: 1.0,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: () => _showLoanDetailsModal(context),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
               children: [
+                // AVATAR INICIAL
                 CircleAvatar(
-                  radius: 19,
+                  radius: 17,
                   backgroundColor: isPaid
-                      ? AppTheme.success.withValues(alpha: 0.2)
-                      : AppTheme.primaryAccent.withValues(alpha: 0.2),
+                      ? AppTheme.success.withValues(alpha: 0.18)
+                      : AppTheme.primaryAccent.withValues(alpha: 0.18),
                   child: Text(
                     loan.debtorName.isNotEmpty ? loan.debtorName[0].toUpperCase() : '?',
                     style: TextStyle(
                       color: isPaid ? AppTheme.success : AppTheme.primaryAccent,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 13.5,
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
+
+                // NOMBRE DEUDOR (LINEA PROPIA PARA QUE NUNCA SE RECORTE) + FECHA EN SUB-TITULO
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        loan.debtorName,
+                        loan.debtorName.toUpperCase(),
                         style: const TextStyle(
                           color: AppTheme.textPrimary,
-                          fontSize: 15.5,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.bold,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Prestado: ${AppFormatters.formatDate(loan.borrowDate)}',
-                        style: const TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                      if (loan.paymentFrequency != 'Fecha Única') ...[
-                        const SizedBox(height: 3),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.warning.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(6),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.event_outlined,
+                            size: 11,
+                            color: loan.isOverdue && !isPaid ? AppTheme.danger : AppTheme.textSecondary,
                           ),
-                          child: Text(
-                            loan.paymentFrequency.split(' ').first,
-                            style: const TextStyle(
-                              color: AppTheme.warning,
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.bold,
+                          const SizedBox(width: 3),
+                          Text(
+                            dateStr,
+                            style: TextStyle(
+                              color: loan.isOverdue && !isPaid ? AppTheme.danger : AppTheme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
-                      ],
+                          if (loan.paymentFrequency != 'Fecha Única') ...[
+                            const Text(' • ', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+                            Text(
+                              loan.paymentFrequency.split(' ').first,
+                              style: const TextStyle(color: AppTheme.warning, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                StatusBadge(status: status),
-              ],
-            ),
 
-            // BARRA DE PROGRESO DE PAGOS PARCIALES
-            if (isPartial) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  backgroundColor: Colors.white10,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF06B6D4)),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Abonado: ${AppFormatters.formatCurrency(loan.totalPaid, loan.currency)}',
-                    style: const TextStyle(color: Color(0xFF06B6D4), fontSize: 11, fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    '${(progress * 100).toStringAsFixed(0)}% cubierto',
-                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
-                  ),
-                ],
-              ),
-            ],
-
-            const Divider(color: Colors.white10, height: 24),
-
-            // MONTO Y FECHAS
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isPartial ? 'Saldo Restante' : 'Monto a Cobrar',
-                        style: const TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
+                // MONTO Y ACCIONES RÁPIDAS
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
                           AppFormatters.formatCurrency(
                             isPartial ? loan.remainingBalance : loan.totalWithInterest,
                             loan.currency,
@@ -448,179 +598,65 @@ class LoanTile extends StatelessWidget {
                             color: isPaid
                                 ? AppTheme.success
                                 : (isPartial ? AppTheme.warning : AppTheme.textPrimary),
-                            fontSize: 19,
+                            fontSize: 15,
                             fontWeight: FontWeight.bold,
                             decoration: isPaid ? TextDecoration.lineThrough : null,
                           ),
                         ),
-                      ),
-                      if (loan.calculatedInterest > 0)
-                        Text(
-                          '+ ${AppFormatters.formatCurrency(loan.calculatedInterest, loan.currency)} interés',
-                          style: const TextStyle(color: AppTheme.warning, fontSize: 10.5, fontWeight: FontWeight.w500),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Row(
+                        const SizedBox(width: 6),
+                        StatusBadge(status: status),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+
+                    // BOTONES DE ACCIÓN RÁPIDA COMPACTOS
+                    Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.event_outlined, size: 13, color: AppTheme.textSecondary),
-                        SizedBox(width: 4),
-                        Text(
-                          'Fecha de Cobro',
-                          style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 11.5,
+                        if (loan.phone != null && loan.phone!.isNotEmpty)
+                          InkWell(
+                            onTap: () => _openWhatsApp(context),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              child: Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.success, size: 16),
+                            ),
+                          ),
+                        if (!isPaid)
+                          InkWell(
+                            onTap: () => _showAddPaymentModal(context),
+                            child: Container(
+                              margin: const EdgeInsets.only(left: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF06B6D4).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFF06B6D4).withValues(alpha: 0.3)),
+                              ),
+                              child: const Text('Abonar', style: TextStyle(color: Color(0xFF06B6D4), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        InkWell(
+                          onTap: onTogglePaid,
+                          child: Container(
+                            margin: const EdgeInsets.only(left: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isPaid ? AppTheme.cardBgLight : AppTheme.success,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isPaid ? 'Desmarcar' : 'Cobrado',
+                              style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      AppFormatters.formatDate(loan.dueDate),
-                      style: TextStyle(
-                        color: loan.isOverdue && !isPaid
-                            ? AppTheme.danger
-                            : AppTheme.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
                   ],
                 ),
               ],
             ),
-
-            // TELÉFONO & BOTÓN WHATSAPP
-            if (loan.phone != null && loan.phone!.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.03),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.phone_android_outlined, size: 15, color: AppTheme.success),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        loan.phone!,
-                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12.5, fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () => _openWhatsApp(context),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.success.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.success.withValues(alpha: 0.3)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.success, size: 14),
-                            SizedBox(width: 4),
-                            Text('WhatsApp', style: TextStyle(color: AppTheme.success, fontSize: 11, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            if (loan.notes != null && loan.notes!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Nota: ${loan.notes}',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-
-            // BOTONES DE ACCIÓN RÁPIDA (CON WRAP ANTI-OVERFLOW)
-            Wrap(
-              alignment: WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                IconButton(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, color: AppTheme.danger, size: 20),
-                  tooltip: 'Eliminar préstamo',
-                  constraints: const BoxConstraints(),
-                  padding: const EdgeInsets.all(6),
-                ),
-                if (onEdit != null)
-                  IconButton(
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined, color: AppTheme.textSecondary, size: 20),
-                    tooltip: 'Editar préstamo',
-                    constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.all(6),
-                  ),
-
-                // BOTÓN ABONAR
-                if (!isPaid)
-                  OutlinedButton.icon(
-                    onPressed: () => _showAddPaymentModal(context),
-                    icon: const Icon(Icons.payments_outlined, size: 15, color: Color(0xFF06B6D4)),
-                    label: const Text('Abonar', style: TextStyle(color: Color(0xFF06B6D4), fontSize: 12.5, fontWeight: FontWeight.bold)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF06B6D4)),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-
-                ElevatedButton.icon(
-                  onPressed: onTogglePaid,
-                  icon: Icon(
-                    isPaid ? Icons.undo_rounded : Icons.check_circle_outline_rounded,
-                    size: 16,
-                  ),
-                  label: Text(isPaid ? 'Desmarcar' : 'Cobrado'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isPaid ? AppTheme.cardBgLight : AppTheme.success,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );

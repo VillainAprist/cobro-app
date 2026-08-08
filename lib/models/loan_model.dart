@@ -7,11 +7,12 @@ class LoanModel {
   final String currency; // 'S/' o '$'
   final DateTime borrowDate;
   final DateTime dueDate;
+  final DateTime? paidDate; // Fecha en que se completó el pago
   final String status; // 'Pendiente', 'Parcial', 'Pagado', 'Vencido'
   final String? notes;
   final String? phone;
   final String paymentFrequency; // 'Fecha Única', 'Diario', 'Semanal', 'Quincenal', 'Mensual'
-  final double interestValue; // Ej: 10
+  final double interestValue;
   final String interestType; // 'Porcentaje %' o 'Monto Fijo'
   final List<PaymentModel> payments;
 
@@ -22,6 +23,7 @@ class LoanModel {
     this.currency = 'S/',
     required this.borrowDate,
     required this.dueDate,
+    this.paidDate,
     this.status = 'Pendiente',
     this.notes,
     this.phone,
@@ -31,7 +33,6 @@ class LoanModel {
     this.payments = const [],
   });
 
-  /// Calcula el monto ganado por interés
   double get calculatedInterest {
     if (interestValue <= 0) return 0.0;
     if (interestType == 'Porcentaje %') {
@@ -40,21 +41,17 @@ class LoanModel {
     return interestValue;
   }
 
-  /// Monto Total a Cobrar (Capital + Intereses)
   double get totalWithInterest => amount + calculatedInterest;
 
-  /// Suma de todos los abonos realizados
   double get totalPaid {
     return payments.fold(0.0, (sum, p) => sum + p.amount);
   }
 
-  /// Saldo Pendiente Restante
   double get remainingBalance {
     final balance = totalWithInterest - totalPaid;
     return balance < 0 ? 0.0 : balance;
   }
 
-  /// Estado dinámico con soporte para pagos parciales (Abonos)
   String get dynamicStatus {
     if (status == 'Pagado' || remainingBalance <= 0) return 'Pagado';
     if (totalPaid > 0) return 'Parcial';
@@ -80,6 +77,7 @@ class LoanModel {
       'currency': currency,
       'borrowDate': borrowDate.toIso8601String(),
       'dueDate': dueDate.toIso8601String(),
+      'paidDate': paidDate?.toIso8601String(),
       'status': status,
       'notes': notes,
       'phone': phone,
@@ -97,6 +95,7 @@ class LoanModel {
       currency: map['currency'] as String? ?? 'S/',
       borrowDate: DateTime.parse(map['borrowDate'] as String),
       dueDate: DateTime.parse(map['dueDate'] as String),
+      paidDate: map['paidDate'] != null ? DateTime.parse(map['paidDate'] as String) : null,
       status: map['status'] as String? ?? 'Pendiente',
       notes: map['notes'] as String?,
       phone: map['phone'] as String?,
@@ -128,6 +127,7 @@ class LoanModel {
     String? currency,
     DateTime? borrowDate,
     DateTime? dueDate,
+    DateTime? paidDate,
     String? status,
     String? notes,
     String? phone,
@@ -143,6 +143,7 @@ class LoanModel {
       currency: currency ?? this.currency,
       borrowDate: borrowDate ?? this.borrowDate,
       dueDate: dueDate ?? this.dueDate,
+      paidDate: paidDate ?? this.paidDate,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       phone: phone ?? this.phone,

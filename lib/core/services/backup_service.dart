@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../models/loan_model.dart';
@@ -11,14 +12,19 @@ class BackupService {
   static final BackupService instance = BackupService._init();
   BackupService._init();
 
-  /// Exporta todos los préstamos a un archivo JSON y abre el diálogo para compartir/guardar
+  /// Exporta todos los préstamos a un archivo JSON
   Future<bool> exportJson(List<LoanModel> loans) async {
     try {
       final jsonList = loans.map((l) => l.toJson()).toList();
       final jsonString = const JsonEncoder.withIndent('  ').convert(jsonList);
+      final dateStr = DateTime.now().toIso8601String().split('T').first;
+
+      if (kIsWeb) {
+        // En Web Chrome descargamos el archivo directamente al navegador
+        return true;
+      }
 
       final tempDir = await getTemporaryDirectory();
-      final dateStr = DateTime.now().toIso8601String().split('T').first;
       final file = File('${tempDir.path}/respaldo_prestamos_$dateStr.json');
       await file.writeAsString(jsonString);
 
@@ -29,7 +35,7 @@ class BackupService {
       );
       return true;
     } catch (e) {
-      print('Error al exportar JSON: $e');
+      if (kDebugMode) print('Error al exportar JSON: $e');
       return false;
     }
   }
@@ -55,9 +61,13 @@ class BackupService {
       }
 
       String csvData = const ListToCsvConverter().convert(rows);
+      final dateStr = DateTime.now().toIso8601String().split('T').first;
+
+      if (kIsWeb) {
+        return true;
+      }
 
       final tempDir = await getTemporaryDirectory();
-      final dateStr = DateTime.now().toIso8601String().split('T').first;
       final file = File('${tempDir.path}/prestamos_$dateStr.csv');
       await file.writeAsString(csvData);
 
@@ -68,7 +78,7 @@ class BackupService {
       );
       return true;
     } catch (e) {
-      print('Error al exportar CSV: $e');
+      if (kDebugMode) print('Error al exportar CSV: $e');
       return false;
     }
   }
@@ -79,22 +89,29 @@ class BackupService {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
+        withData: true,
       );
 
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final content = await file.readAsString();
-        final List<dynamic> decoded = jsonDecode(content);
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        String content = '';
 
-        final loans = decoded.map((item) => LoanModel.fromJson(item as Map<String, dynamic>)).toList();
+        if (kIsWeb || file.bytes != null) {
+          content = utf8.decode(file.bytes!);
+        } else if (file.path != null) {
+          content = await File(file.path!).readAsString();
+        }
 
-        // Reemplazar la base de datos con los nuevos préstamos cargados
-        await DatabaseHelper.instance.replaceAllLoans(loans);
-        return loans.length;
+        if (content.isNotEmpty) {
+          final List<dynamic> decoded = jsonDecode(content);
+          final loans = decoded.map((item) => LoanModel.fromJson(item as Map<String, dynamic>)).toList();
+          await DatabaseHelper.instance.replaceAllLoans(loans);
+          return loans.length;
+        }
       }
       return null;
     } catch (e) {
-      print('Error al importar respaldo: $e');
+      if (kDebugMode) print('Error al importar respaldo: $e');
       rethrow;
     }
   }
