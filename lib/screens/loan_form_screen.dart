@@ -262,7 +262,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   Expanded(
                     flex: 1,
                     child: DropdownButtonFormField<String>(
-                      initialValue: _currency,
+                      value: _currency,
                       dropdownColor: AppTheme.cardBg,
                       style: const TextStyle(color: AppTheme.textPrimary),
                       decoration: const InputDecoration(
@@ -301,7 +301,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   Expanded(
                     flex: 1,
                     child: DropdownButtonFormField<String>(
-                      initialValue: _interestType,
+                      value: _interestType,
                       dropdownColor: AppTheme.cardBg,
                       style: const TextStyle(color: AppTheme.textPrimary),
                       decoration: const InputDecoration(
@@ -345,7 +345,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
 
               // Frecuencia de Cobro
               DropdownButtonFormField<String>(
-                initialValue: _paymentFrequency,
+                value: _paymentFrequency,
                 dropdownColor: AppTheme.cardBg,
                 style: const TextStyle(color: AppTheme.textPrimary),
                 decoration: const InputDecoration(
