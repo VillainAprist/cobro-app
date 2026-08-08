@@ -13,15 +13,21 @@ class FirebaseSyncService {
 
   FirebaseSyncService._init();
 
-  Future<void> init() async {
-    if (_initialized) return;
+  Future<bool> init() async {
+    if (_initialized) return true;
     try {
+      if (Firebase.apps.isNotEmpty) {
+        _initialized = true;
+        return true;
+      }
       await Firebase.initializeApp();
       _initialized = true;
+      return true;
     } catch (e) {
       if (kDebugMode) {
-        print('Firebase init warning: $e');
+        print('Firebase init warning (sube google-services.json para habilitar en celular): $e');
       }
+      return false;
     }
   }
 
@@ -59,10 +65,12 @@ class FirebaseSyncService {
     }
   }
 
-  /// Respalda la lista completa de préstamos en Firebase Firestore y guarda la fecha del respaldo
+  /// Respalda la lista completa de préstamos en Firebase Firestore
   Future<bool> backupToCloud(List<LoanModel> loans) async {
+    final ready = await init();
+    if (!ready) return false;
+
     try {
-      await init();
       final collection = FirebaseFirestore.instance.collection('loans_backup');
       final now = DateTime.now();
 
@@ -75,7 +83,6 @@ class FirebaseSyncService {
 
       await collection.doc('daily_backup').set(backupData);
 
-      // Guardar fecha del último respaldo en SharedPreferences
       if (!kIsWeb) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_lastBackupKey, now.toIso8601String());
@@ -94,11 +101,10 @@ class FirebaseSyncService {
     if (loans.isEmpty) return false;
 
     final freq = await getAutoBackupFrequency();
-    if (freq == 'Manual') return false; // El usuario desactivó la copia automática
+    if (freq == 'Manual') return false;
 
     final lastBackup = await getLastBackupDate();
     if (lastBackup == null) {
-      // Es el primer respaldo automático
       return await backupToCloud(loans);
     }
 
@@ -122,7 +128,6 @@ class FirebaseSyncService {
     }
 
     if (daysDifference >= requiredDays) {
-      if (kDebugMode) print('Ejecutando respaldo automático en la nube ($freq)...');
       return await backupToCloud(loans);
     }
 
@@ -131,8 +136,10 @@ class FirebaseSyncService {
 
   /// Descarga el último respaldo desde Firebase Firestore
   Future<List<LoanModel>?> restoreFromCloud() async {
+    final ready = await init();
+    if (!ready) return null;
+
     try {
-      await init();
       final doc = await FirebaseFirestore.instance.collection('loans_backup').doc('daily_backup').get();
 
       if (!doc.exists || doc.data() == null) return null;
