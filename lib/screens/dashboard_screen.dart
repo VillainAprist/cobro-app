@@ -38,9 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   double get _totalBorrowed => _allLoans.fold(0.0, (sum, item) => sum + item.totalWithInterest);
-
   double get _totalRecovered => _allLoans.fold(0.0, (sum, item) => sum + item.totalPaid);
-
   double get _pendingBalance => _allLoans.fold(0.0, (sum, item) => sum + item.remainingBalance);
 
   int get _countPending => _allLoans.where((l) => l.isPending).length;
@@ -159,7 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    '📊 Control y Estadísticas Globales',
+                    '📊 Control y Balances',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: 18,
@@ -177,7 +175,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Expanded(
                     child: StatCard(
-                      title: 'TOTAL REGISTRADO',
+                      title: 'TOTAL PRESTADO',
                       amountFormatted: AppFormatters.formatCurrency(_totalBorrowed),
                       icon: Icons.account_balance_wallet_outlined,
                       color: AppTheme.primaryAccent,
@@ -263,7 +261,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             onPressed: _showStatsDialog,
             icon: const Icon(Icons.bar_chart_rounded, color: AppTheme.warning),
-            tooltip: 'Ver Control y Estadísticas',
+            tooltip: 'Ver Balances y Estadísticas',
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.shield_outlined, color: AppTheme.primaryAccent),
@@ -316,49 +314,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // BANNER RESUMEN PENDIENTE RÁPIDO
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E3A8A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.primaryAccent.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Balance por Cobrar', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                        const SizedBox(height: 4),
-                        Text(
-                          AppFormatters.formatCurrency(_pendingBalance),
-                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _showStatsDialog,
-                      icon: const Icon(Icons.analytics_outlined, size: 16),
-                      label: const Text('Estadísticas'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // BÚSQUEDA
+              // BÚSQUEDA DIRECTA
               TextField(
                 onChanged: (val) => setState(() => _searchQuery = val),
                 style: const TextStyle(color: AppTheme.textPrimary),

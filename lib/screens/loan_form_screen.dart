@@ -170,8 +170,8 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         top: 24,
-        left: 20,
-        right: 20,
+        left: 16,
+        right: 16,
       ),
       decoration: const BoxDecoration(
         color: AppTheme.background,
@@ -187,12 +187,15 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    isEditing ? 'Editar Préstamo' : 'Registrar Nuevo Préstamo',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Text(
+                      isEditing ? 'Editar Préstamo' : 'Registrar Nuevo Préstamo',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
@@ -201,7 +204,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Nombre del Deudor
               TextFormField(
@@ -218,7 +221,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Teléfono / WhatsApp (Opcional)
               TextFormField(
@@ -231,13 +234,14 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   prefixIcon: Icon(Icons.phone_android_outlined, color: AppTheme.success),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Monto y Moneda
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: TextFormField(
                       controller: _amountController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -258,19 +262,21 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
-                    flex: 1,
+                    flex: 2,
                     child: DropdownButtonFormField<String>(
                       value: _currency,
+                      isExpanded: true,
                       dropdownColor: AppTheme.cardBg,
-                      style: const TextStyle(color: AppTheme.textPrimary),
+                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Moneda',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'S/', child: Text('Soles (S/)')),
-                        DropdownMenuItem(value: '\$', child: Text('Dólares (\$)')),
+                        DropdownMenuItem(value: 'S/', child: Text('S/ (Soles)', overflow: TextOverflow.ellipsis)),
+                        DropdownMenuItem(value: '\$', child: Text('\$ (USD)', overflow: TextOverflow.ellipsis)),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => _currency = val);
@@ -279,37 +285,40 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Intereses (Opcional)
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: TextFormField(
                       controller: _interestController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
                       style: const TextStyle(color: AppTheme.textPrimary),
                       decoration: const InputDecoration(
-                        labelText: 'Interés / Ganancia (Opcional)',
+                        labelText: 'Interés / Ganancia',
                         prefixIcon: Icon(Icons.percent_rounded, color: AppTheme.warning),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
-                    flex: 1,
+                    flex: 2,
                     child: DropdownButtonFormField<String>(
                       value: _interestType,
+                      isExpanded: true,
                       dropdownColor: AppTheme.cardBg,
-                      style: const TextStyle(color: AppTheme.textPrimary),
+                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
                       decoration: const InputDecoration(
                         labelText: 'Tipo',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'Monto Fijo', child: Text('Fijo (Monto)')),
-                        DropdownMenuItem(value: 'Porcentaje %', child: Text('Porcentaje %')),
+                        DropdownMenuItem(value: 'Monto Fijo', child: Text('Fijo', overflow: TextOverflow.ellipsis)),
+                        DropdownMenuItem(value: 'Porcentaje %', child: Text('% Porc.', overflow: TextOverflow.ellipsis)),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => _interestType = val);
@@ -331,29 +340,30 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                     children: [
                       const Text(
                         'Total a Cobrar (Capital + Interés):',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12.5),
                       ),
                       Text(
                         AppFormatters.formatCurrency(totalPreview, _currency),
-                        style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 15),
+                        style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 14.5),
                       ),
                     ],
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Frecuencia de Cobro
               DropdownButtonFormField<String>(
                 value: _paymentFrequency,
+                isExpanded: true,
                 dropdownColor: AppTheme.cardBg,
-                style: const TextStyle(color: AppTheme.textPrimary),
+                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
                 decoration: const InputDecoration(
                   labelText: 'Frecuencia de Cobro',
                   prefixIcon: Icon(Icons.repeat_rounded, color: AppTheme.warning),
                 ),
                 items: _frequencyOptions.map((opt) {
-                  return DropdownMenuItem(value: opt, child: Text(opt));
+                  return DropdownMenuItem(value: opt, child: Text(opt, overflow: TextOverflow.ellipsis));
                 }).toList(),
                 onChanged: (val) {
                   if (val != null) {
@@ -364,7 +374,7 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   }
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Fechas (Préstamo y Cobro)
               Row(
@@ -375,34 +385,44 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                       child: InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Fecha Préstamo',
-                          prefixIcon: Icon(Icons.calendar_today, color: AppTheme.primaryAccent, size: 20),
+                          prefixIcon: Icon(Icons.calendar_today, color: AppTheme.primaryAccent, size: 18),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                         ),
-                        child: Text(
-                          AppFormatters.formatDate(_borrowDate),
-                          style: const TextStyle(color: AppTheme.textPrimary),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            AppFormatters.formatDate(_borrowDate),
+                            style: const TextStyle(color: AppTheme.textPrimary),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: InkWell(
                       onTap: () => _selectDate(context, false),
                       child: InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Fecha de Cobro',
-                          prefixIcon: Icon(Icons.event, color: AppTheme.warning, size: 20),
+                          prefixIcon: Icon(Icons.event, color: AppTheme.warning, size: 18),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                         ),
-                        child: Text(
-                          AppFormatters.formatDate(_dueDate),
-                          style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            AppFormatters.formatDate(_dueDate),
+                            style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Notas opcionales
               TextFormField(
@@ -414,12 +434,12 @@ class _LoanFormScreenState extends State<LoanFormScreen> {
                   prefixIcon: Icon(Icons.note_alt_outlined, color: AppTheme.textSecondary),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
 
               // Botón Guardar
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: 50,
                 child: ElevatedButton.icon(
                   onPressed: _submit,
                   icon: const Icon(Icons.save_rounded, color: Colors.white),
